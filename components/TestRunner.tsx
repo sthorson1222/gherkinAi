@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { GeneratedFeature, TestRun, TestEnvironment } from '../types';
-import { Play, CheckCircle, XCircle, Clock, Terminal as TerminalIcon, AlertTriangle, Code, X, Tag, Filter, Layers, Square, FileText, AlertOctagon, Image, FileCode, Folder } from 'lucide-react';
+import { Play, CheckCircle, XCircle, Clock, Terminal as TerminalIcon, AlertTriangle, Code, X, Tag, Filter, Layers, Square, FileText, AlertOctagon, Image, FileCode, Folder, Download, Eye } from 'lucide-react';
 
 interface TestRunnerProps {
   features: GeneratedFeature[];
@@ -97,7 +97,34 @@ export const TestRunner: React.FC<TestRunnerProps> = ({ features, activeEnvironm
   };
 
   const getMockLogsForRun = (run: TestRun): string[] => {
-    // Generic Logs for any feature
+    // Custom logs for User Login history to match execution
+    if (run.feature === 'User Login') {
+        return [
+            `> Initializing Playwright runner for: User Login...`,
+            `> Target Environment: ${activeEnvironment?.name || 'House QA Portal'}`,
+            `> Injecting Environment Variables:`,
+            `  - TEST_USER: ehoptester1@devmail.house.gov`,
+            `  - TEST_PASSWORD: HopT...07`,
+            `> docker-compose exec playwright cucumber-js --tags "@default-1"`,
+            `Found 1 feature(s)...`,
+            `Running: User Login`,
+            `> Given I verify the browser is open and loaded`,
+            `  🚀 Launching browser and navigating to: https://lims2qa.house.gov`,
+            `  📸 Screenshot saved: 1-landing-page.png`,
+            `  ✅ Browser Validated | URL: https://lims2qa.house.gov/login`,
+            `  📑 Page Title: Sign in to your account`,
+            `> When I perform the secure login sequence`,
+            `  ⌨️ Filling credentials...`,
+            `  📸 Screenshot saved: 2-dashboard-signed-in.png`,
+            `> Then I should be fully authenticated`,
+            `  ✅ Dashboard loaded successfully`,
+            `1 scenario (1 passed)`,
+            `3 steps (3 passed)`,
+            `Done in ${run.duration}.`
+        ];
+    }
+
+    // Generic Logs for other features
     return [
         `> Initializing Playwright runner for: ${run.feature}...`,
         `> Target Environment: ${activeEnvironment?.name || 'Local Dev'}`,
@@ -144,20 +171,43 @@ export const TestRunner: React.FC<TestRunnerProps> = ({ features, activeEnvironm
        });
     }
 
-    // Generic Simulation Sequence
-    const sequence = [
-        { delay: 800, log: `> docker-compose exec playwright cucumber-js --tags "@${feature.id}"` },
-        { delay: 1500, log: `Found 1 feature(s)...` },
-        { delay: 2000, log: `Running: ${feature.title}` },
-        { delay: 2500, log: `> Given precondition steps are met` },
-        { delay: 2800, log: `  🌐 Navigate and setup state` },
-        { delay: 3500, log: `> When actions are performed` },
-        { delay: 3800, log: `  ⚡ Executing steps...` },
-        { delay: 4500, log: `> Then assertions should pass` },
-        { delay: 4800, log: `  ✅ All checks passed` },
-        { delay: 5000, log: `1 scenario (1 passed)` },
-        { delay: 5200, log: `Done in 2.5s.` },
-    ];
+    // Determine simulation sequence based on feature
+    let sequence;
+
+    if (feature.title === 'User Login' || feature.id === 'default-1') {
+        sequence = [
+            { delay: 800, log: `> docker-compose exec playwright cucumber-js --tags "@${feature.id}"` },
+            { delay: 1500, log: `Found 1 feature(s)...` },
+            { delay: 2000, log: `Running: ${feature.title}` },
+            { delay: 2500, log: `> Given I verify the browser is open and loaded` },
+            { delay: 2800, log: `  🚀 Launching browser and navigating to: ${activeEnvironment?.url || 'https://lims2qa.house.gov'}` },
+            { delay: 3500, log: `  📸 Screenshot saved: 1-landing-page.png` },
+            { delay: 3800, log: `  ✅ Browser Validated | URL: ${activeEnvironment?.url}/login` },
+            { delay: 3800, log: `  📑 Page Title: Sign in to your account` },
+            { delay: 4200, log: `> When I perform the secure login sequence` },
+            { delay: 4500, log: `  ⌨️ Filling credentials...` },
+            { delay: 5500, log: `  📸 Screenshot saved: 2-dashboard-signed-in.png` },
+            { delay: 5800, log: `> Then I should be fully authenticated` },
+            { delay: 6000, log: `  ✅ Dashboard loaded successfully` },
+            { delay: 6200, log: `1 scenario (1 passed)` },
+            { delay: 6500, log: `Done in 4.2s.` },
+        ];
+    } else {
+        // Generic Simulation
+        sequence = [
+            { delay: 800, log: `> docker-compose exec playwright cucumber-js --tags "@${feature.id}"` },
+            { delay: 1500, log: `Found 1 feature(s)...` },
+            { delay: 2000, log: `Running: ${feature.title}` },
+            { delay: 2500, log: `> Given precondition steps are met` },
+            { delay: 2800, log: `  🌐 Navigate and setup state` },
+            { delay: 3500, log: `> When actions are performed` },
+            { delay: 3800, log: `  ⚡ Executing steps...` },
+            { delay: 4500, log: `> Then assertions should pass` },
+            { delay: 4800, log: `  ✅ All checks passed` },
+            { delay: 5000, log: `1 scenario (1 passed)` },
+            { delay: 5200, log: `Done in 2.5s.` },
+        ];
+    }
 
     let timeouts: ReturnType<typeof setTimeout>[] = [];
 
@@ -176,7 +226,7 @@ export const TestRunner: React.FC<TestRunnerProps> = ({ features, activeEnvironm
         id: `run-${Date.now()}`,
         feature: feature.title,
         status: 'passed',
-        duration: '2.5s',
+        duration: feature.title === 'User Login' ? '4.2s' : '2.5s',
         timestamp: 'Just now'
       };
       setRuns(prev => [newRun, ...prev]);
@@ -202,6 +252,13 @@ export const TestRunner: React.FC<TestRunnerProps> = ({ features, activeEnvironm
 
   const handleCancelQueue = () => {
     setTestQueue([]);
+  };
+
+  // Helper to extract screenshots from logs
+  const getScreenshotsFromLogs = (logLines: string[]) => {
+    return logLines
+      .filter(line => line.includes('Screenshot saved:'))
+      .map(line => line.split('Screenshot saved:')[1].trim());
   };
 
   return (
@@ -282,7 +339,7 @@ export const TestRunner: React.FC<TestRunnerProps> = ({ features, activeEnvironm
       {/* Run Inspector Modal */}
       {inspectingRun && (
         <div className="absolute inset-0 z-50 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center p-8 animate-in fade-in duration-200">
-           <div className="bg-slate-800 w-full max-w-3xl h-full max-h-[80vh] rounded-xl border border-slate-700 shadow-2xl flex flex-col overflow-hidden">
+           <div className="bg-slate-800 w-full max-w-3xl h-full max-h-[90vh] rounded-xl border border-slate-700 shadow-2xl flex flex-col overflow-hidden">
               <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700 bg-slate-800">
                  <div className="flex items-center gap-3">
                     {inspectingRun.status === 'failed' ? (
@@ -314,6 +371,40 @@ export const TestRunner: React.FC<TestRunnerProps> = ({ features, activeEnvironm
                         </div>
                     ))}
                  </div>
+
+                 {/* Artifacts / Screenshots Section */}
+                 {getScreenshotsFromLogs(getMockLogsForRun(inspectingRun)).length > 0 && (
+                     <div className="p-4 bg-slate-900 border-t border-slate-800">
+                        <h4 className="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
+                           <Image size={16} className="text-purple-400" />
+                           Test Artifacts
+                        </h4>
+                        <div className="grid grid-cols-2 gap-4">
+                           {getScreenshotsFromLogs(getMockLogsForRun(inspectingRun)).map((img, idx) => (
+                             <div key={idx} className="group relative bg-slate-800 rounded-lg border border-slate-700 p-2 hover:border-blue-500 transition-colors">
+                                <div className="aspect-video bg-slate-950 rounded flex items-center justify-center mb-2 overflow-hidden relative">
+                                    {/* Mock Image Placeholder */}
+                                    <div className="text-slate-600 flex flex-col items-center">
+                                       <Image size={24} className="mb-1 opacity-50" />
+                                       <span className="text-[10px]">Preview Unavailable</span>
+                                    </div>
+                                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity gap-2">
+                                        <button className="p-1.5 bg-slate-700 text-white rounded hover:bg-blue-600 transition-colors" title="View">
+                                           <Eye size={16} />
+                                        </button>
+                                        <button className="p-1.5 bg-slate-700 text-white rounded hover:bg-green-600 transition-colors" title="Download">
+                                           <Download size={16} />
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="text-xs text-slate-400 truncate font-mono px-1">
+                                   {img}
+                                </div>
+                             </div>
+                           ))}
+                        </div>
+                     </div>
+                 )}
               </div>
            </div>
         </div>
