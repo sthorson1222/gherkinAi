@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { GeneratedFeature, TestRun, TestEnvironment } from '../types';
-import { Play, CheckCircle, XCircle, Clock, Terminal as TerminalIcon, AlertTriangle, Code, X, Tag, Filter, Layers, Square, FileText, AlertOctagon, Image, FileCode, Folder, Download, Eye } from 'lucide-react';
+import { Play, CheckCircle, XCircle, Clock, Terminal as TerminalIcon, AlertTriangle, Code, X, Tag, Filter, Layers, Square, FileText, AlertOctagon, Image, FileCode, Folder, Download, Eye, ChevronRight, ChevronDown } from 'lucide-react';
 
 interface TestRunnerProps {
   features: GeneratedFeature[];
@@ -12,6 +12,7 @@ interface ParsedFile {
   name: string;
   path: string;
   content: string;
+  type: 'code' | 'image';
 }
 
 export const TestRunner: React.FC<TestRunnerProps> = ({ features, activeEnvironment }) => {
@@ -55,7 +56,7 @@ export const TestRunner: React.FC<TestRunnerProps> = ({ features, activeEnvironm
         const fullPath = match[1].trim();
         const content = match[2].trim();
         const name = fullPath.split('/').pop() || fullPath;
-        files.push({ name, path: fullPath, content });
+        files.push({ name, path: fullPath, content, type: 'code' });
       }
 
       if (!found) {
@@ -63,8 +64,25 @@ export const TestRunner: React.FC<TestRunnerProps> = ({ features, activeEnvironm
         files.push({
           name: 'steps.ts',
           path: 'tests/steps/steps.ts',
-          content: code
+          content: code,
+          type: 'code'
         });
+      }
+
+      // SIMULATION: Inject Artifacts Folder for User Login
+      if (viewingCodeFeature.title === 'User Login' || viewingCodeFeature.id === 'default-1') {
+         files.push({
+             name: '1-landing-page.png',
+             path: 'test-results/1-landing-page.png',
+             content: 'https://placehold.co/800x600/1e293b/475569?text=Landing+Page+Screenshot&font=roboto',
+             type: 'image'
+         });
+         files.push({
+             name: '2-dashboard-signed-in.png',
+             path: 'test-results/2-dashboard-signed-in.png',
+             content: 'https://placehold.co/800x600/1e293b/22c55e?text=Dashboard+Authenticated&font=roboto',
+             type: 'image'
+         });
       }
       
       setParsedFiles(files);
@@ -261,19 +279,23 @@ export const TestRunner: React.FC<TestRunnerProps> = ({ features, activeEnvironm
       .map(line => line.split('Screenshot saved:')[1].trim());
   };
 
+  const hasArtifacts = (run: TestRun) => {
+    return getScreenshotsFromLogs(getMockLogsForRun(run)).length > 0;
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full relative">
       {/* Code Viewer Modal with Tabs */}
       {viewingCodeFeature && (
         <div className="absolute inset-0 z-50 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center p-8 animate-in fade-in duration-200">
-           <div className="bg-slate-800 w-full max-w-5xl h-full max-h-[85vh] rounded-xl border border-slate-700 shadow-2xl flex flex-col overflow-hidden">
+           <div className="bg-slate-800 w-full max-w-6xl h-full max-h-[85vh] rounded-xl border border-slate-700 shadow-2xl flex flex-col overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700 bg-slate-900">
                  <div className="flex items-center gap-3">
                    <div className="p-1.5 bg-blue-500/10 rounded">
                      <Code size={18} className="text-blue-400" />
                    </div>
                    <div>
-                      <h3 className="text-white font-semibold text-sm">Automation Code</h3>
+                      <h3 className="text-white font-semibold text-sm">Automation Code & Artifacts</h3>
                       <p className="text-xs text-slate-400">{viewingCodeFeature.title}</p>
                    </div>
                  </div>
@@ -289,23 +311,35 @@ export const TestRunner: React.FC<TestRunnerProps> = ({ features, activeEnvironm
                   {/* File Explorer Sidebar */}
                   <div className="w-64 bg-slate-900 border-r border-slate-700 flex flex-col">
                       <div className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                          <Folder size={12} /> Project Files
+                          <Folder size={12} /> Project Explorer
                       </div>
-                      <div className="flex-1 overflow-y-auto">
-                          {parsedFiles.map((file, idx) => (
+                      <div className="flex-1 overflow-y-auto py-2">
+                          {parsedFiles.map((file, idx) => {
+                             const isImage = file.type === 'image';
+                             const isTestResult = file.path.startsWith('test-results/');
+                             
+                             return (
                               <button
                                 key={idx}
                                 onClick={() => setActiveFileIndex(idx)}
-                                className={`w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 transition-colors border-l-2 ${
+                                className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2 transition-colors border-l-2 group ${
                                     activeFileIndex === idx 
                                     ? 'bg-slate-800 text-blue-400 border-blue-500' 
                                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 border-transparent'
                                 }`}
                               >
-                                  <FileCode size={14} className={activeFileIndex === idx ? 'text-blue-400' : 'text-slate-500'} />
-                                  <span className="truncate">{file.name}</span>
+                                  {isImage ? (
+                                      <Image size={14} className={activeFileIndex === idx ? 'text-purple-400' : 'text-purple-500/50'} />
+                                  ) : (
+                                      <FileCode size={14} className={activeFileIndex === idx ? 'text-blue-400' : 'text-slate-500'} />
+                                  )}
+                                  <div className="flex flex-col truncate">
+                                      <span className="truncate">{file.name}</span>
+                                      {isTestResult && <span className="text-[10px] text-slate-600 font-mono">test-results/</span>}
+                                  </div>
                               </button>
-                          ))}
+                             );
+                          })}
                       </div>
                   </div>
 
@@ -314,19 +348,39 @@ export const TestRunner: React.FC<TestRunnerProps> = ({ features, activeEnvironm
                       <div className="px-4 py-2 bg-slate-900/50 border-b border-slate-800 text-xs text-slate-400 font-mono flex items-center gap-2">
                           <span>{parsedFiles[activeFileIndex]?.path}</span>
                       </div>
-                      <div className="flex-1 overflow-y-auto p-6 font-mono text-sm leading-relaxed">
+                      <div className="flex-1 overflow-y-auto font-mono text-sm leading-relaxed">
                           {parsedFiles.length > 0 ? (
-                            <pre className="text-blue-100">
-                                {parsedFiles[activeFileIndex].content.split('\n').map((line, i) => (
-                                    <div key={i} className="table-row">
-                                        <span className="table-cell text-right pr-4 text-slate-700 select-none w-8">{i + 1}</span>
-                                        <span className="table-cell">{line}</span>
+                            parsedFiles[activeFileIndex].type === 'image' ? (
+                                <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-slate-900/50">
+                                    <div className="relative group border border-slate-700 rounded-lg overflow-hidden shadow-2xl">
+                                        <img 
+                                            src={parsedFiles[activeFileIndex].content} 
+                                            alt={parsedFiles[activeFileIndex].name} 
+                                            className="max-w-full max-h-[60vh] object-contain" 
+                                        />
+                                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                            <button className="px-4 py-2 bg-slate-800 text-white rounded-lg flex items-center gap-2 hover:bg-blue-600 transition-colors">
+                                                <Download size={16} /> Download
+                                            </button>
+                                        </div>
                                     </div>
-                                ))}
-                            </pre>
+                                    <p className="mt-4 text-slate-500 text-xs">Generated Artifact</p>
+                                </div>
+                            ) : (
+                                <div className="p-6">
+                                    <pre className="text-blue-100">
+                                        {parsedFiles[activeFileIndex].content.split('\n').map((line, i) => (
+                                            <div key={i} className="table-row">
+                                                <span className="table-cell text-right pr-4 text-slate-700 select-none w-8">{i + 1}</span>
+                                                <span className="table-cell">{line}</span>
+                                            </div>
+                                        ))}
+                                    </pre>
+                                </div>
+                            )
                           ) : (
                              <div className="text-slate-500 italic flex items-center justify-center h-full">
-                                No code available.
+                                No content available.
                              </div>
                           )}
                       </div>
@@ -386,8 +440,13 @@ export const TestRunner: React.FC<TestRunnerProps> = ({ features, activeEnvironm
                                     {/* Mock Image Placeholder */}
                                     <div className="text-slate-600 flex flex-col items-center">
                                        <Image size={24} className="mb-1 opacity-50" />
-                                       <span className="text-[10px]">Preview Unavailable</span>
+                                       <span className="text-[10px]">{img}</span>
                                     </div>
+                                    {/* Simulated Image Content */}
+                                    <img 
+                                        src={`https://placehold.co/600x400/1e293b/64748b?text=${encodeURIComponent(img)}`} 
+                                        className="absolute inset-0 w-full h-full object-cover" 
+                                    />
                                     <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity gap-2">
                                         <button className="p-1.5 bg-slate-700 text-white rounded hover:bg-blue-600 transition-colors" title="View">
                                            <Eye size={16} />
@@ -616,9 +675,16 @@ export const TestRunner: React.FC<TestRunnerProps> = ({ features, activeEnvironm
                          <Clock size={10} /> {run.timestamp}
                        </td>
                        <td className="px-4 py-3 text-right">
-                          <span className="text-xs text-blue-400 opacity-0 group-hover:opacity-100 flex items-center justify-end gap-1">
-                              <FileText size={12} /> View Logs
-                          </span>
+                          <div className="flex items-center justify-end gap-3 transition-opacity">
+                             {hasArtifacts(run) && (
+                                <span className="text-xs text-purple-400 flex items-center gap-1 px-2 py-1 bg-purple-500/10 rounded hover:bg-purple-500/20" title="Has Artifacts">
+                                   <Image size={12} /> Artifacts
+                                </span>
+                             )}
+                             <span className="text-xs text-blue-400 flex items-center gap-1 hover:underline">
+                                <FileText size={12} /> Logs
+                             </span>
+                          </div>
                        </td>
                      </tr>
                    ))}
