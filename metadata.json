@@ -1,0 +1,5 @@
+{
+  "name": "GherkinGenius Control Plane",
+  "description": "A dashboard to generate Cucumber/Playwright test cases from user stories using AI, and manage simulated Docker test environments.",
+  "requestFramePermissions": []
+}
