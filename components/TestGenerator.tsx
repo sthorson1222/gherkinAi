@@ -1,7 +1,8 @@
+
 import React, { useState, useRef } from 'react';
-import { generateGherkin } from '../services/geminiService';
-import { GeneratedFeature } from '../types';
-import { Sparkles, Save, Copy, RefreshCw, AlertCircle, Upload, X, Zap, Image as ImageIcon, FileText, Code } from 'lucide-react';
+import { generateGherkin } from '../services/geminiService.ts';
+import { GeneratedFeature } from '../types.ts';
+import { Sparkles, Save, Copy, RefreshCw, AlertCircle, Upload, X, Zap, Image as ImageIcon, FileText, Code, Link as LinkIcon, Layers, ShieldCheck } from 'lucide-react';
 
 interface TestGeneratorProps {
   onSaveFeature: (feature: GeneratedFeature) => void;
@@ -10,6 +11,7 @@ interface TestGeneratorProps {
 export const TestGenerator: React.FC<TestGeneratorProps> = ({ onSaveFeature }) => {
   const [userStory, setUserStory] = useState('');
   const [context, setContext] = useState('');
+  const [mockupUrl, setMockupUrl] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   
   const [featureOutput, setFeatureOutput] = useState('');
@@ -21,6 +23,8 @@ export const TestGenerator: React.FC<TestGeneratorProps> = ({ onSaveFeature }) =
   // New features state
   const [selectedImage, setSelectedImage] = useState<{base64: string, mimeType: string, preview: string} | null>(null);
   const [useFastMode, setUseFastMode] = useState(false);
+  const [deepCoverage, setDeepCoverage] = useState(false);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -61,7 +65,9 @@ export const TestGenerator: React.FC<TestGeneratorProps> = ({ onSaveFeature }) =
         context,
         imageBase64: selectedImage?.base64,
         mimeType: selectedImage?.mimeType,
-        useFastMode
+        useFastMode,
+        mockupUrl,
+        deepCoverage
       });
       setFeatureOutput(result.feature);
       setStepsOutput(result.steps);
@@ -101,20 +107,6 @@ export const TestGenerator: React.FC<TestGeneratorProps> = ({ onSaveFeature }) =
               <span className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400">1</span>
               Define Requirements
             </h2>
-            
-            {/* Fast Mode Toggle */}
-            <button
-              onClick={() => setUseFastMode(!useFastMode)}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
-                useFastMode 
-                  ? 'bg-amber-500/10 text-amber-400 border-amber-500/50' 
-                  : 'bg-slate-700 text-slate-400 border-transparent hover:border-slate-500'
-              }`}
-              title="Uses gemini-2.5-flash-lite for lower latency"
-            >
-              <Zap size={14} className={useFastMode ? "fill-amber-400" : ""} />
-              Fast Mode
-            </button>
           </div>
           
           <label className="block text-sm font-medium text-slate-300 mb-2">User Story / Acceptance Criteria</label>
@@ -125,15 +117,30 @@ export const TestGenerator: React.FC<TestGeneratorProps> = ({ onSaveFeature }) =
             onChange={(e) => setUserStory(e.target.value)}
           />
 
-          <div className="mt-4">
-            <label className="block text-sm font-medium text-slate-300 mb-2">Technical Context (Optional)</label>
-            <input
-              type="text"
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
-              placeholder="e.g., The login button id is #login-btn"
-              value={context}
-              onChange={(e) => setContext(e.target.value)}
-            />
+          <div className="mt-4 grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Technical Context (Optional)</label>
+                <input
+                  type="text"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+                  placeholder="e.g., #login-btn"
+                  value={context}
+                  onChange={(e) => setContext(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Mockup Link (Optional)</label>
+                <div className="relative">
+                    <LinkIcon className="absolute left-3 top-3 text-slate-500" size={16} />
+                    <input
+                      type="text"
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-10 p-3 text-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+                      placeholder="Figma / Jira URL..."
+                      value={mockupUrl}
+                      onChange={(e) => setMockupUrl(e.target.value)}
+                    />
+                </div>
+              </div>
           </div>
 
           {/* Image Upload Section */}
@@ -179,13 +186,52 @@ export const TestGenerator: React.FC<TestGeneratorProps> = ({ onSaveFeature }) =
             />
           </div>
 
+          {/* Configuration Toggles */}
+          <div className="mt-6 flex flex-wrap gap-4 p-4 bg-slate-900/50 rounded-lg border border-slate-700/50">
+             
+             {/* Fast Mode Toggle */}
+             <button
+               onClick={() => { setUseFastMode(!useFastMode); if(!useFastMode) setDeepCoverage(false); }}
+               disabled={deepCoverage || !!selectedImage}
+               className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all border ${
+                 useFastMode 
+                   ? 'bg-amber-500/10 text-amber-400 border-amber-500/50' 
+                   : (deepCoverage || selectedImage) ? 'opacity-30 cursor-not-allowed border-transparent text-slate-500' : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-500'
+               }`}
+             >
+               <Zap size={14} className={useFastMode ? "fill-amber-400" : ""} />
+               <div>
+                  <div className="font-semibold">Fast Mode</div>
+                  <div className="text-[10px] opacity-70">Flash Lite (Speed)</div>
+               </div>
+             </button>
+
+             {/* Deep Coverage Toggle */}
+             <button
+               onClick={() => { setDeepCoverage(!deepCoverage); if(!deepCoverage) setUseFastMode(false); }}
+               className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all border ${
+                 deepCoverage 
+                   ? 'bg-purple-500/10 text-purple-400 border-purple-500/50' 
+                   : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-500'
+               }`}
+             >
+               <ShieldCheck size={14} className={deepCoverage ? "fill-purple-400" : ""} />
+               <div>
+                  <div className="font-semibold">Deep Coverage</div>
+                  <div className="text-[10px] opacity-70">Gemini Pro (Edge Cases)</div>
+               </div>
+             </button>
+          </div>
+
           <button
             onClick={handleGenerate}
             disabled={isGenerating || (!userStory && !selectedImage)}
-            className={`mt-6 w-full py-3 rounded-lg font-medium flex items-center justify-center gap-2 transition-all ${
+            className={`mt-4 w-full py-3 rounded-lg font-medium flex items-center justify-center gap-2 transition-all ${
               isGenerating || (!userStory && !selectedImage)
                 ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
-                : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white shadow-lg shadow-blue-900/20'
+                : deepCoverage 
+                   ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg shadow-purple-900/20'
+                   : 'bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white shadow-lg shadow-blue-900/20'
             }`}
           >
             {isGenerating ? (
@@ -193,7 +239,7 @@ export const TestGenerator: React.FC<TestGeneratorProps> = ({ onSaveFeature }) =
             ) : (
               <Sparkles size={20} />
             )}
-            {isGenerating ? 'Generating...' : 'Generate with Gemini'}
+            {isGenerating ? 'Analyzing...' : deepCoverage ? 'Generate Comprehensive Suite' : 'Generate Tests'}
           </button>
           
           {error && (

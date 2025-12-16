@@ -44,3 +44,10 @@ export enum AppView {
   RUNNER = 'RUNNER',
   SETTINGS = 'SETTINGS',
 }
+
+export interface ExecutionConfig {
+  mode: 'simulated' | 'real';
+  executionMethod: 'host' | 'docker';
+  backendUrl: string;
+  containerName: string;
+}

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -7,6 +8,25 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     <script>
+      // Global Error Handler to catch "Blank Screen" issues
+      window.onerror = function(message, source, lineno, colno, error) {
+        const errorDiv = document.getElementById('error-display') || document.createElement('div');
+        errorDiv.id = 'error-display';
+        errorDiv.style.position = 'fixed';
+        errorDiv.style.top = '0';
+        errorDiv.style.left = '0';
+        errorDiv.style.width = '100%';
+        errorDiv.style.backgroundColor = '#991b1b';
+        errorDiv.style.color = '#fff';
+        errorDiv.style.padding = '20px';
+        errorDiv.style.zIndex = '9999';
+        errorDiv.style.fontFamily = 'monospace';
+        errorDiv.style.whiteSpace = 'pre-wrap';
+        errorDiv.innerHTML = `<strong>Runtime Error:</strong><br>${message}<br><small>${source}:${lineno}:${colno}</small><br><br>${error?.stack || ''}`;
+        document.body.appendChild(errorDiv);
+        console.error('Global Error:', error);
+      };
+
       tailwind.config = {
         theme: {
           extend: {
@@ -49,17 +69,22 @@
   <script type="importmap">
 {
   "imports": {
-    "react/": "https://aistudiocdn.com/react@^19.2.1/",
-    "react": "https://aistudiocdn.com/react@^19.2.1",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.32.0",
-    "recharts": "https://aistudiocdn.com/recharts@^3.5.1",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.556.0"
+    "react": "https://esm.sh/react@18.2.0",
+    "react/": "https://esm.sh/react@18.2.0/",
+    "react-dom": "https://esm.sh/react-dom@18.2.0?deps=react@18.2.0",
+    "react-dom/": "https://esm.sh/react-dom@18.2.0/?deps=react@18.2.0",
+    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client?deps=react@18.2.0",
+    "prop-types": "https://esm.sh/prop-types@15.8.1",
+    "react-is": "https://esm.sh/react-is@18.2.0",
+    "@google/genai": "https://esm.sh/@google/genai@0.1.2",
+    "recharts": "https://esm.sh/recharts@2.12.7?external=react,react-dom&deps=react@18.2.0,react-dom@18.2.0,prop-types@15.8.1,react-is@18.2.0",
+    "lucide-react": "https://esm.sh/lucide-react@0.344.0?external=react"
   }
 }
 </script>
 </head>
   <body>
     <div id="root"></div>
+    <script type="module" src="./index.tsx"></script>
   </body>
 </html>

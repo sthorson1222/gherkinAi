@@ -1,0 +1,35 @@
+
+version: '3.8'
+
+services:
+  # 1. The Control Plane (React UI + Node Bridge)
+  control-plane:
+    build: .
+    container_name: gherkin-genius-control-plane
+    ports:
+      - "3000:3000" # Frontend
+      - "3001:3001" # Backend API
+    environment:
+      - API_KEY=${API_KEY}
+      - DOCKER_CONTAINER=true
+    volumes:
+      # CRITICAL: Allow container to talk to Host Docker Daemon
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Map source code for live editing
+      - .:/app
+      # Exclude node_modules to use the container's installed modules (prevents OS architecture conflicts)
+      - /app/node_modules
+    depends_on:
+      - playwright-runner
+
+  # 2. The Target Container (Browser Execution Environment)
+  playwright-runner:
+    image: mcr.microsoft.com/playwright:v1.41.0-jammy
+    container_name: playwright-runner
+    # Keep the container alive so we can exec commands into it
+    command: tail -f /dev/null
+    working_dir: /app
+    volumes:
+      # Map the entire project root so 'npx playwright' can find package.json and dependencies
+      # Note: This assumes the host node_modules are compatible with Linux (usually fine for pure JS deps)
+      - .:/app

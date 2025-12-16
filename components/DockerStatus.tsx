@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { ContainerStatus } from '../types';
+import { ContainerStatus } from '../types.ts';
 import { Cpu, HardDrive, RefreshCw, Terminal } from 'lucide-react';
 
 export const DockerStatus: React.FC = () => {
