@@ -78,7 +78,7 @@ export const TestRunner: React.FC<TestRunnerProps> = ({ features, activeEnvironm
 
   const filteredFeatures = useMemo(() => {
     if (!selectedTag) return features;
-    return features.filter(f => f.content.includes(selectedTag));
+    return filteredFeatures.filter(f => f.content.includes(selectedTag));
   }, [features, selectedTag]);
 
   // --- ARTIFACT DOWNLOAD LOGIC ---
@@ -99,7 +99,6 @@ export const TestRunner: React.FC<TestRunnerProps> = ({ features, activeEnvironm
     }
 
     // Real run: Trigger download from backend
-    // Since we can't use window.location.href (it navigates away for JSON responses sometimes), we use a temp link
     const url = `${executionConfig.backendUrl}/api/artifacts/${runId}`;
     const a = document.createElement('a');
     a.href = url;
@@ -115,14 +114,39 @@ export const TestRunner: React.FC<TestRunnerProps> = ({ features, activeEnvironm
       setActiveRun(feature.id);
       setLogs(prev => [...prev, `🚀 Starting REAL Execution for: ${feature.title}`]);
       setLogs(prev => [...prev, `⚙️  Method: ${executionConfig.executionMethod === 'docker' ? 'Docker Container' : 'Local Host Process'}`]);
-      if(executionConfig.executionMethod === 'docker') {
-          setLogs(prev => [...prev, `🐳 Container: ${executionConfig.containerName}`]);
-      }
-      setLogs(prev => [...prev, `📡 Connecting to Control Plane: ${executionConfig.backendUrl}...`]);
-
-      const startTime = Date.now();
       
+      const startTime = Date.now();
+      let logAbortController: AbortController | null = null;
+
       try {
+          // If Docker, setup separate log stream
+          if (executionConfig.executionMethod === 'docker') {
+             setLogs(prev => [...prev, `🐳 Container: ${executionConfig.containerName}`]);
+             setLogs(prev => [...prev, `📡 Streaming logs directly from container: ${executionConfig.containerName}...`]);
+             
+             logAbortController = new AbortController();
+             const logsUrl = `${executionConfig.backendUrl}/api/logs/stream?container=${executionConfig.containerName}`;
+             
+             // Start fetching logs in parallel
+             fetch(logsUrl, { signal: logAbortController.signal }).then(async (res) => {
+                 if (!res.body) return;
+                 const reader = res.body.getReader();
+                 const decoder = new TextDecoder();
+                 while (true) {
+                     const { done, value } = await reader.read();
+                     if (done) break;
+                     const chunk = decoder.decode(value, { stream: true });
+                     const lines = chunk.split('\n').filter(Boolean);
+                     setLogs(prev => [...prev, ...lines]);
+                 }
+             }).catch(e => {
+                 if (e.name !== 'AbortError') console.error("Log stream error:", e);
+             });
+          } else {
+             setLogs(prev => [...prev, `📡 Connecting to Control Plane: ${executionConfig.backendUrl}...`]);
+          }
+
+          // Trigger execution
           const response = await fetch(`${executionConfig.backendUrl}/api/run`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -139,19 +163,25 @@ export const TestRunner: React.FC<TestRunnerProps> = ({ features, activeEnvironm
           if (!response.ok) {
               throw new Error(`Control Plane Error: ${response.statusText}`);
           }
-          if (!response.body) {
-             throw new Error("No response stream received");
-          }
 
-          const reader = response.body.getReader();
-          const decoder = new TextDecoder();
-          
-          while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              const chunk = decoder.decode(value, { stream: true });
-              const lines = chunk.split('\n').filter(Boolean);
-              setLogs(prev => [...prev, ...lines]);
+          // If Host mode, read the response stream as logs.
+          // If Docker mode, we ignore the response stream (logs come from separate stream), 
+          // but we wait for the response to complete to know execution is done.
+          if (executionConfig.executionMethod !== 'docker') {
+              if (!response.body) throw new Error("No response stream received");
+              const reader = response.body.getReader();
+              const decoder = new TextDecoder();
+              while (true) {
+                  const { done, value } = await reader.read();
+                  if (done) break;
+                  const chunk = decoder.decode(value, { stream: true });
+                  const lines = chunk.split('\n').filter(Boolean);
+                  setLogs(prev => [...prev, ...lines]);
+              }
+          } else {
+              // For Docker, we just read the stream to completion to wait for process exit
+              // effectively using it as a signal for "test done"
+              await response.text(); 
           }
 
           const duration = ((Date.now() - startTime) / 1000).toFixed(1) + 's';
@@ -161,6 +191,10 @@ export const TestRunner: React.FC<TestRunnerProps> = ({ features, activeEnvironm
           setLogs(prev => [...prev, `❌ Execution Failed: ${(err as Error).message}`]);
           setRuns(prev => [{ id: `real-${Date.now()}`, feature: feature.title, status: 'failed', duration: '0s', timestamp: new Date().toLocaleTimeString() }, ...prev]);
       } finally {
+          if (logAbortController) {
+              logAbortController.abort();
+              setLogs(prev => [...prev, `🛑 Log stream closed.`]);
+          }
           setActiveRun(null);
       }
   };
@@ -452,4 +486,4 @@ export const TestRunner: React.FC<TestRunnerProps> = ({ features, activeEnvironm
       </div>
     </div>
   );
-};
+}
