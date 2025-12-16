@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { DockerStatus } from './DockerStatus.tsx';
 import { GeneratedFeature } from '../types.ts';
@@ -27,13 +26,14 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export const Dashboard: React.FC<DashboardProps> = ({ features = [] }) => {
   // Mock Stats Calculation
   const featureCount = features.length;
-  const passedCount = Math.floor(featureCount * 0.8); // Mock pass rate
+  // If no features, default to 0 for passedCount
+  const passedCount = featureCount > 0 ? Math.floor(featureCount * 0.8) : 0; 
   
   const stats = [
     { label: 'Total Features', value: featureCount, icon: FileCode, color: 'text-blue-400', bg: 'bg-blue-400/10' },
-    { label: 'Active Scenarios', value: featureCount * 3 + 2, icon: Activity, color: 'text-purple-400', bg: 'bg-purple-400/10' },
+    { label: 'Active Scenarios', value: featureCount > 0 ? featureCount * 3 + 2 : 0, icon: Activity, color: 'text-purple-400', bg: 'bg-purple-400/10' },
     { label: 'Pass Rate', value: featureCount > 0 ? '92%' : '0%', icon: CheckCircle, color: 'text-green-400', bg: 'bg-green-400/10' },
-    { label: 'Avg Execution', value: '3.8s', icon: BarChart2, color: 'text-orange-400', bg: 'bg-orange-400/10' },
+    { label: 'Avg Execution', value: featureCount > 0 ? '3.8s' : '0s', icon: BarChart2, color: 'text-orange-400', bg: 'bg-orange-400/10' },
   ];
 
   const chartData = [
@@ -78,7 +78,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ features = [] }) => {
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 flex flex-col">
              <h3 className="text-lg font-semibold text-white mb-6">Test Suite Distribution</h3>
-             <div className="w-full h-72 min-h-[288px]">
+             <div className="w-full h-72 min-h-[288px] relative">
                <ResponsiveContainer width="100%" height="100%">
                  <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
